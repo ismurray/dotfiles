@@ -1,0 +1,23 @@
+# Case-insensitive tab completion
+set completion-ignore-case on
+
+# Show all completions on first tab if ambiguous
+set show-all-if-ambiguous on
+
+# Color files by type during completion (like ls --color)
+set colored-stats on
+
+# Append slash to completed directory names
+set mark-directories on
+set mark-symlinked-directories on
+
+# Partially complete and show remaining options
+set show-all-if-unmodified on
+
+# Up/Down arrows search history using typed prefix
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+
+# Ctrl+Left/Right to move by word
+"\e[1;5D": backward-word
+"\e[1;5C": forward-word

@@ -1,0 +1,28 @@
+[user]
+	email = ian.murray@betterup.co
+	name = Ian Murray
+[core]
+	editor = code --wait
+	compression = 9
+	preloadIndex = true
+	fscache = true
+[diff]
+	colorMoved = zebra
+[push]
+	autoSetupRemote = true
+[fetch]
+	writeCommitGraph = true
+	prune = true
+[init]
+	defaultBranch = main
+[http]
+	postBuffer = 524288000
+[gc]
+	auto = 256
+[pull]
+	rebase = true
+[filter "lfs"]
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f

@@ -1,0 +1,15 @@
+{
+  "model": "opus",
+  "defaultMode": "bypassPermissions",
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit",
+      "Write",
+      "WebFetch",
+      "mcp__*",
+      "Task"
+    ]
+  }
+}
