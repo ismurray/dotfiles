@@ -11,5 +11,11 @@
       "mcp__*",
       "Task"
     ]
-  }
+  },
+  "pluginMarketplaces": [
+    "betterup/betterup-claude-code-toolkit"
+  ],
+  "enabledPlugins": [
+    "atlassian-cli@betterup-engineering"
+  ]
 }
