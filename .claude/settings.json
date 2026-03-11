@@ -15,7 +15,7 @@
   "pluginMarketplaces": [
     "betterup/betterup-claude-code-toolkit"
   ],
-  "enabledPlugins": [
-    "atlassian-cli@betterup-engineering"
-  ]
+  "enabledPlugins": {
+    "atlassian-cli@betterup-engineering": true
+  }
 }
