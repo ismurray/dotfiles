@@ -12,9 +12,14 @@
       "Task"
     ]
   },
-  "pluginMarketplaces": [
-    "betterup/betterup-claude-code-toolkit"
-  ],
+  "extraKnownMarketplaces": {
+    "betterup-engineering": {
+      "source": {
+        "source": "github",
+        "repo": "betterup/betterup-claude-code-toolkit"
+      }
+    }
+  },
   "enabledPlugins": {
     "atlassian-cli@betterup-engineering": true
   }
