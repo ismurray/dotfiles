@@ -48,6 +48,12 @@ if [ -f "$DOTFILES_DIR/.claude/settings.json" ]; then
   echo "  Linked Claude Code settings"
 fi
 
+# Claude Code user-level instructions
+if [ -f "$DOTFILES_DIR/.claude/CLAUDE.md" ]; then
+  ln -sf "$DOTFILES_DIR/.claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+  echo "  Linked Claude Code CLAUDE.md"
+fi
+
 # Claude Code user commands
 if [ -d "$DOTFILES_DIR/.claude/commands" ]; then
   ln -sfn "$DOTFILES_DIR/.claude/commands" "$HOME/.claude/commands"
