@@ -69,4 +69,27 @@ if [ -f "$DOTFILES_DIR/vscode-settings.json" ]; then
   echo "  Linked VS Code settings"
 fi
 
+# VS Code extensions for Codespaces
+VSCODE_EXTENSIONS=(
+  "shd101wyy.markdown-preview-enhanced"
+)
+
+# Locate the remote-cli `code` binary (not always on PATH during dotfiles install)
+CODE_CLI="$(command -v code || true)"
+if [ -z "$CODE_CLI" ]; then
+  CODE_CLI="$(find "$HOME/.vscode-remote/bin" -path '*/remote-cli/code' -type f 2>/dev/null | head -n 1)"
+fi
+
+if [ -n "$CODE_CLI" ] && [ ${#VSCODE_EXTENSIONS[@]} -gt 0 ]; then
+  for ext in "${VSCODE_EXTENSIONS[@]}"; do
+    if "$CODE_CLI" --install-extension "$ext" --force >/dev/null 2>&1; then
+      echo "  Installed VS Code extension: $ext"
+    else
+      echo "  Failed to install VS Code extension: $ext"
+    fi
+  done
+else
+  echo "  Skipped VS Code extensions (code CLI not found)"
+fi
+
 echo "Dotfiles installed successfully!"
