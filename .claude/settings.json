@@ -1,14 +1,14 @@
 {
   "model": "opus",
-  "defaultMode": "bypassPermissions",
+  "tui": "default",
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash",
       "Read",
       "Edit",
       "Write",
       "WebFetch",
-      "mcp__*",
       "Task"
     ]
   },
