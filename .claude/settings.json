@@ -1,14 +1,14 @@
 {
   "model": "opus",
-  "defaultMode": "bypassPermissions",
+  "tui": "default",
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash",
       "Read",
       "Edit",
       "Write",
       "WebFetch",
-      "mcp__*",
       "Task"
     ]
   },
@@ -21,6 +21,11 @@
     }
   },
   "enabledPlugins": {
-    "atlassian-cli@betterup-engineering": true
+    "atlassian-cli@betterup-engineering": true,
+    "platoon-harness@betterup-engineering": true
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/statusline-command.sh\""
   }
 }

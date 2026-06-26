@@ -1,5 +1,6 @@
 {
     "workbench.colorTheme": "Default Dark Modern",
+    "workbench.secondarySideBar.defaultVisibility": "hidden",
     "files.autoSave": "afterDelay",
     "editor.formatOnSave": true,
     "editor.inlineSuggest.enabled": true,
