@@ -1,0 +1,23 @@
+.claude/settings.json
+  4c1f61a2c75d52b5 3,5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ef6c65462793908814f0993a3b6d04060d474359",
+  "prompts": {
+    "4c1f61a2c75d52b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "863d64a6-7a6b-4537-a612-951ee21baac0",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Ian Murray",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
