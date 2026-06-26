@@ -21,6 +21,11 @@
     }
   },
   "enabledPlugins": {
-    "atlassian-cli@betterup-engineering": true
+    "atlassian-cli@betterup-engineering": true,
+    "platoon-harness@betterup-engineering": true
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/statusline-command.sh\""
   }
 }
