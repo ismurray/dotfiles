@@ -75,4 +75,23 @@ if [ -f "$DOTFILES_DIR/vscode-settings.json" ]; then
   echo "  Linked VS Code settings"
 fi
 
+# Helper scripts (installed onto PATH via ~/.local/bin)
+if [ -d "$DOTFILES_DIR/bin" ]; then
+  mkdir -p "$HOME/.local/bin"
+  for script in "$DOTFILES_DIR"/bin/*; do
+    [ -f "$script" ] || continue
+    name="$(basename "$script")"
+    ln -sf "$script" "$HOME/.local/bin/$name"
+    echo "  Linked $name -> ~/.local/bin"
+  done
+
+  # Ensure ~/.local/bin is on PATH for both shells
+  for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$rc" ] && ! grep -q '.local/bin' "$rc"; then
+      echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc"
+      echo "  Added ~/.local/bin to PATH in $(basename "$rc")"
+    fi
+  done
+fi
+
 echo "Dotfiles installed successfully!"
