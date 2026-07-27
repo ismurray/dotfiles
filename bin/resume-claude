@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+#
+# resume-claude — resume the most recent Claude Code session for a
+# Platoon Command Center (PCC) AgentTask, from inside its GH Codespace.
+#
+# Two independent ways to find the session id, tried in order (default: auto):
+#
+#   1. api    Ask the PCC AgentTask SHOW endpoint for its canonical
+#             claude_session_id. This is the id the dispatched agent actually
+#             reported via AgentTaskEvents, so it's the authoritative answer
+#             even when several sessions exist in the same checkout.
+#             Needs PLATOON_AGENT_TASK_ID (set automatically in a PCC
+#             codespace) and a Platoon token.
+#
+#   2. local  Scan ~/.claude for the newest session whose working directory
+#             matches, using the on-disk session metadata / transcripts.
+#             No network or token required.
+#
+# `claude --resume <id>` always needs the session transcript present locally
+# (~/.claude/projects/<enc>/<id>.jsonl), so whichever strategy wins, the id is
+# verified against local transcripts before launching. If the API returns an
+# id with no local transcript, we fall back to the local scan automatically.
+#
+# Usage:
+#   resume-claude [options] [-- <extra args passed to `claude`>]
+#
+# Options:
+#   -t, --task-id ID    AgentTask id (default: $PLATOON_AGENT_TASK_ID)
+#   -d, --dir DIR       Working dir to match sessions against (default: $PWD)
+#   -s, --source SRC    api | local | auto   (default: auto)
+#   -p, --print         Print the resolved session id and exit (don't launch)
+#   -n, --dry-run       Print the `claude` command instead of running it
+#   -h, --help          Show this help
+#
+# Environment:
+#   PLATOON_AGENT_TASK_ID   AgentTask id (injected by PCC dispatch)
+#   PLATOON_BASE_URL        default https://platoon.betterup.co
+#   PLATOON_MEMBER_TOKEN    Platoon member token (preferred)
+#   PLATOON_API_TOKEN       fallback token (used by the PCC harness scripts)
+#   CLAUDE_BIN              claude executable (default: claude)
+#
+# Exit codes: 0 ok · 2 usage · 3 no session id found · 4 claude not installed
+set -euo pipefail
+
+PLATOON_BASE_URL="${PLATOON_BASE_URL:-https://platoon.betterup.co}"
+PLATOON_BASE_URL="${PLATOON_BASE_URL%/}"
+CLAUDE_BIN="${CLAUDE_BIN:-claude}"
+UUID_RE='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+
+task_id="${PLATOON_AGENT_TASK_ID:-}"
+work_dir="$PWD"
+source_pref="auto"
+print_only=0
+dry_run=0
+passthrough=()
+
+# Print the leading comment block (everything between the shebang and the
+# first non-comment line) as help text, stripping the leading "# ".
+usage() {
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == '#!'* ]] && continue
+    [[ "$line" == '#'* || -z "$line" ]] || break
+    printf '%s\n' "${line#\# }" | sed 's/^#$//'
+  done < "$0"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -t|--task-id) [[ $# -ge 2 ]] || { echo "error: $1 needs a value" >&2; exit 2; }; task_id="$2"; shift 2 ;;
+    -d|--dir)     [[ $# -ge 2 ]] || { echo "error: $1 needs a value" >&2; exit 2; }; work_dir="$2"; shift 2 ;;
+    -s|--source)  [[ $# -ge 2 ]] || { echo "error: $1 needs a value" >&2; exit 2; }; source_pref="$2"; shift 2 ;;
+    -p|--print)   print_only=1; shift ;;
+    -n|--dry-run) dry_run=1; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    --)           shift; passthrough=("$@"); break ;;
+    -*)           echo "error: unknown option: $1" >&2; exit 2 ;;
+    *)            echo "error: unexpected argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+case "$source_pref" in api|local|auto) ;; *) echo "error: --source must be api|local|auto" >&2; exit 2 ;; esac
+
+# Absolutize the working dir so it matches the cwd recorded in session metadata.
+if [[ -d "$work_dir" ]]; then
+  work_dir="$(cd "$work_dir" && pwd -P)"
+fi
+
+log() { echo "resume-claude: $*" >&2; }
+
+# Does a resumable transcript for this session id exist on disk? `claude
+# --resume` reads ~/.claude/projects/<encoded-cwd>/<id>.jsonl, so an id without
+# a local transcript can't be resumed here (e.g. a fresh/rebuilt codespace).
+transcript_exists() {
+  local id="$1" f
+  shopt -s nullglob
+  for f in "$HOME"/.claude/projects/*/"$id".jsonl; do
+    [[ -f "$f" ]] && { shopt -u nullglob; return 0; }
+  done
+  shopt -u nullglob
+  return 1
+}
+
+# --- Strategy 1: PCC AgentTask SHOW endpoint --------------------------------
+resolve_from_api() {
+  local token="${PLATOON_MEMBER_TOKEN:-${PLATOON_API_TOKEN:-}}"
+  if [[ -z "$task_id" ]]; then
+    log "api: no task id (set PLATOON_AGENT_TASK_ID or pass --task-id) — skipping"
+    return 1
+  fi
+  if [[ -z "$token" ]]; then
+    log "api: no Platoon token (PLATOON_MEMBER_TOKEN / PLATOON_API_TOKEN) — skipping"
+    return 1
+  fi
+  command -v curl >/dev/null 2>&1 || { log "api: curl not found — skipping"; return 1; }
+  command -v jq   >/dev/null 2>&1 || { log "api: jq not found — skipping"; return 1; }
+
+  # Auth header is piped via `curl --config -` so the token never lands in
+  # argv (visible to `ps`) — same pattern as the platoon-harness scripts.
+  local body http
+  local body_file; body_file="$(mktemp)"
+  http="$(
+    printf 'header = "Authorization: Bearer %s"\n' "$token" | \
+      curl -sS -o "$body_file" -w '%{http_code}' \
+        --config - \
+        -H "Accept: application/json" \
+        --max-time 15 \
+        "${PLATOON_BASE_URL}/agent_tasks/${task_id}" 2>/dev/null || echo "000"
+  )"
+  body="$(cat "$body_file")"; rm -f "$body_file"
+
+  if [[ "$http" != "200" ]]; then
+    log "api: GET /agent_tasks/${task_id} returned HTTP ${http} — falling back"
+    return 1
+  fi
+  local id
+  id="$(printf '%s' "$body" | jq -r '.agent_task.claude_session_id // empty' 2>/dev/null || true)"
+  if [[ -z "$id" ]]; then
+    log "api: task ${task_id} has no claude_session_id yet — falling back"
+    return 1
+  fi
+  if [[ ! "$id" =~ $UUID_RE ]]; then
+    log "api: returned session id '${id}' is not a valid UUID — falling back"
+    return 1
+  fi
+  printf '%s' "$id"
+}
+
+# --- Strategy 2: on-disk ~/.claude session metadata / transcripts -----------
+resolve_from_local() {
+  # Preferred: session metadata records the real cwd, so we can match exactly
+  # regardless of how Claude encodes the project directory name.
+  if command -v jq >/dev/null 2>&1; then
+    local id
+    id="$(
+      shopt -s nullglob
+      files=("$HOME"/.claude/sessions/*.json)
+      shopt -u nullglob
+      [[ ${#files[@]} -gt 0 ]] || exit 0
+      jq -rs --arg cwd "$work_dir" '
+        map(select(.cwd == $cwd and (.sessionId | type == "string")))
+        | sort_by(.updatedAt // .startedAt // 0)
+        | last // {}
+        | .sessionId // empty
+      ' "${files[@]}" 2>/dev/null || true
+    )"
+    if [[ -n "$id" && "$id" =~ $UUID_RE ]]; then
+      printf '%s' "$id"
+      return 0
+    fi
+  fi
+
+  # Fallback: newest transcript in the encoded project directory. Claude
+  # encodes the project dir by replacing '/' with '-'.
+  local enc="${work_dir//\//-}"
+  local dir="$HOME/.claude/projects/${enc}"
+  [[ -d "$dir" ]] || { log "local: no session metadata or transcripts for ${work_dir}"; return 1; }
+  local newest
+  newest="$(
+    shopt -s nullglob
+    latest=""; latest_mt=0
+    for f in "$dir"/*.jsonl; do
+      mt="$(date -r "$f" +%s 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)"
+      if [[ "$mt" -gt "$latest_mt" ]]; then latest_mt="$mt"; latest="$f"; fi
+    done
+    [[ -n "$latest" ]] && basename "$latest" .jsonl
+  )"
+  if [[ -n "$newest" && "$newest" =~ $UUID_RE ]]; then
+    printf '%s' "$newest"
+    return 0
+  fi
+  log "local: no resumable session found for ${work_dir}"
+  return 1
+}
+
+# Resolve a usable session id honoring --source and the transcript-must-exist
+# constraint. Returns the id on stdout.
+resolve_session_id() {
+  local id=""
+  if [[ "$source_pref" == "api" || "$source_pref" == "auto" ]]; then
+    if id="$(resolve_from_api)" && [[ -n "$id" ]]; then
+      if transcript_exists "$id"; then
+        log "using session ${id} (source: api)"
+        printf '%s' "$id"; return 0
+      fi
+      log "api: session ${id} has no local transcript in this codespace"
+      [[ "$source_pref" == "api" ]] && { printf '%s' "$id"; return 0; }  # honor explicit request
+    fi
+    [[ "$source_pref" == "api" ]] && return 1
+  fi
+
+  if [[ "$source_pref" == "local" || "$source_pref" == "auto" ]]; then
+    if id="$(resolve_from_local)" && [[ -n "$id" ]]; then
+      log "using session ${id} (source: local)"
+      printf '%s' "$id"; return 0
+    fi
+  fi
+  return 1
+}
+
+if ! session_id="$(resolve_session_id)" || [[ -z "$session_id" ]]; then
+  log "could not determine a session id to resume."
+  log "checked: task_id='${task_id:-<unset>}', dir='${work_dir}', source='${source_pref}'"
+  exit 3
+fi
+
+if [[ "$print_only" -eq 1 ]]; then
+  printf '%s\n' "$session_id"
+  exit 0
+fi
+
+if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
+  log "'$CLAUDE_BIN' not found on PATH. Resolved session id: ${session_id}"
+  exit 4
+fi
+
+# Resume from the session's working dir so `claude` finds the transcript.
+[[ -d "$work_dir" ]] && cd "$work_dir"
+
+if [[ "$dry_run" -eq 1 ]]; then
+  printf '%s --resume %s' "$CLAUDE_BIN" "$session_id"
+  ((${#passthrough[@]})) && printf ' %s' "${passthrough[@]}"
+  printf '\n'
+  exit 0
+fi
+
+if ((${#passthrough[@]})); then
+  exec "$CLAUDE_BIN" --resume "$session_id" "${passthrough[@]}"
+else
+  exec "$CLAUDE_BIN" --resume "$session_id"
+fi
