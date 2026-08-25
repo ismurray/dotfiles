@@ -60,6 +60,12 @@ if [ -f "$DOTFILES_DIR/.claude/CLAUDE.md" ]; then
   echo "  Linked Claude Code CLAUDE.md"
 fi
 
+# Claude Code output styles
+if [ -d "$DOTFILES_DIR/.claude/output-styles" ]; then
+  ln -sfn "$DOTFILES_DIR/.claude/output-styles" "$HOME/.claude/output-styles"
+  echo "  Linked Claude Code output styles"
+fi
+
 # Claude Code user commands
 if [ -d "$DOTFILES_DIR/.claude/commands" ]; then
   ln -sfn "$DOTFILES_DIR/.claude/commands" "$HOME/.claude/commands"
