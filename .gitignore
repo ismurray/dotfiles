@@ -1,0 +1,6 @@
+# Local scratch space — never committed.
+# Holds working notes and data pulls that shouldn't ship with the dotfiles.
+development_notes/
+
+# IDE settings
+.vscode/

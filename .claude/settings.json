@@ -1,6 +1,7 @@
 {
   "model": "opus",
   "tui": "default",
+  "outputStyle": "Plain language",
   "permissions": {
     "defaultMode": "bypassPermissions",
     "allow": [
