@@ -72,6 +72,12 @@ if [ -d "$DOTFILES_DIR/.claude/commands" ]; then
   echo "  Linked Claude Code commands ($(ls "$DOTFILES_DIR/.claude/commands" | wc -l | tr -d ' ') commands)"
 fi
 
+# Claude Code user skills
+if [ -d "$DOTFILES_DIR/.claude/skills" ]; then
+  ln -sfn "$DOTFILES_DIR/.claude/skills" "$HOME/.claude/skills"
+  echo "  Linked Claude Code skills ($(ls "$DOTFILES_DIR/.claude/skills" | wc -l | tr -d ' ') skills)"
+fi
+
 # VS Code settings for Codespaces
 # In Codespaces, user settings live at this path for the remote server
 VSCODE_SETTINGS_DIR="$HOME/.vscode-remote/data/Machine"

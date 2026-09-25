@@ -5,3 +5,10 @@ development_notes/
 # IDE settings
 .vscode/
 .DS_Store
+
+# Local-only gdoc-md tools (they name internal BetterUp details)
+bin/gdoc-auth
+bin/gdoc-md
+bin/md-append-comments
+bin/md-unembed-images
+.claude/skills/gdoc-md/
