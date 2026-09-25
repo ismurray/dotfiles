@@ -4,3 +4,4 @@ development_notes/
 
 # IDE settings
 .vscode/
+.DS_Store
